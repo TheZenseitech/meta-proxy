@@ -1,33 +1,43 @@
 import express from "express";
 import fetch from "node-fetch";
-import cors from "cors";
+import dotenv from "dotenv";
 
+dotenv.config();
 const app = express();
-app.use(cors());
 
+app.get("/", (req, res) => {
+  res.send("✅ Meta Proxy Server is running!");
+});
+
+// ✅ Route หลักสำหรับค้นหา Interest จาก Meta API
 app.get("/meta-interest", async (req, res) => {
-  const { ad_account_id, q, limit = 10 } = req.query;
+  const { ad_account_id, q, limit } = req.query;
+  const token = process.env.FB_TOKEN;
 
-  // ✅ ดึง token จาก environment variable (ปลอดภัย)
-  const ACCESS_TOKEN = process.env.FB_TOKEN;
-
-  if (!ACCESS_TOKEN) {
-    return res.status(401).json({ error: "Missing FB_TOKEN in environment" });
+  if (!token) {
+    return res.status(400).json({ error: "Missing FB_TOKEN in environment variables" });
   }
 
-  const url = `https://graph.facebook.com/v20.0/act_${ad_account_id}/targetingsearch?q=${encodeURIComponent(
-    q
-  )}&type=adinterest&limit=${limit}&access_token=${ACCESS_TOKEN}`;
+  if (!ad_account_id || !q) {
+    return res.status(400).json({ error: "Missing ad_account_id or q" });
+  }
 
   try {
+    const url = `https://graph.facebook.com/v21.0/act_${ad_account_id}/targetingsearch?type=adinterest&q=${encodeURIComponent(
+      q
+    )}&limit=${limit || 10}&access_token=${token}`;
+
     const response = await fetch(url);
     const data = await response.json();
+
     res.json(data);
-  } catch (error) {
-    console.error("❌ Error:", error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-app.listen(3000, () => console.log("✅ Proxy running on port 3000"));
-export default app;
+// ✅ ให้ Vercel รู้ว่าจะใช้พอร์ตไหน
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
