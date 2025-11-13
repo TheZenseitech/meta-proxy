@@ -1,43 +1,26 @@
-import express from "express";
 import fetch from "node-fetch";
-import dotenv from "dotenv";
 
-dotenv.config();
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("✅ Meta Proxy Server is running!");
-});
-
-// ✅ Route หลักสำหรับค้นหา Interest จาก Meta API
-app.get("/meta-interest", async (req, res) => {
-  const { ad_account_id, q, limit } = req.query;
-  const token = process.env.FB_TOKEN;
-
-  if (!token) {
-    return res.status(400).json({ error: "Missing FB_TOKEN in environment variables" });
-  }
-
-  if (!ad_account_id || !q) {
-    return res.status(400).json({ error: "Missing ad_account_id or q" });
-  }
-
+export default async function handler(req, res) {
   try {
-    const url = `https://graph.facebook.com/v21.0/act_${ad_account_id}/targetingsearch?type=adinterest&q=${encodeURIComponent(
-      q
-    )}&limit=${limit || 10}&access_token=${token}`;
+    // ✅ ดึงค่าจาก query string
+    const { q, limit = 10 } = req.query;
 
-    const response = await fetch(url);
+    // ✅ ใส่ ad_account_id แบบ default
+    const ad_account_id = "832785012634554";
+
+    // ✅ ใส่ access token ของ Meta (จาก Environment Variables)
+    const accessToken = process.env.FB_TOKEN;
+
+    // ✅ สร้าง URL เรียก Facebook API
+    const apiUrl = `https://graph.facebook.com/v19.0/act_${ad_account_id}/targetingsearch?access_token=${accessToken}&q=${encodeURIComponent(q)}&type=adinterest&limit=${limit}`;
+
+    // ✅ ดึงข้อมูลจาก Meta API
+    const response = await fetch(apiUrl);
     const data = await response.json();
 
-    res.json(data);
-  } catch (err) {
-    console.error("Error:", err);
-    res.status(500).json({ error: "Server error" });
+    // ✅ ส่งข้อมูลกลับเป็น JSON
+    res.status(200).json({ data: data.data || [] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-});
-
-// ✅ ให้ Vercel รู้ว่าจะใช้พอร์ตไหน
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
+}
